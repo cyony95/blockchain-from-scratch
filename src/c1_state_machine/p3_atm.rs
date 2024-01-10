@@ -58,8 +58,88 @@ impl StateMachine for Atm {
     type Transition = Action;
 
     fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 4")
+        match t {
+            Action::SwipeCard(pin_hash) => {
+                match starting_state.expected_pin_hash {
+                    Auth::Waiting | Auth::Authenticating(_) => { Atm { cash_inside: starting_state.cash_inside, expected_pin_hash: Auth::Authenticating(*pin_hash), keystroke_register: starting_state.keystroke_register.clone()} },
+                    Auth::Authenticated => { Atm {
+                        cash_inside: 0,
+                        expected_pin_hash: Auth::Waiting,
+                        keystroke_register: Vec::new(),
+                    }},
+                }
+            },
+            Action::PressKey(key) => {
+                match starting_state.expected_pin_hash {
+                    Auth::Waiting => { Atm { cash_inside: starting_state.cash_inside, expected_pin_hash: Auth::Waiting, keystroke_register: starting_state.keystroke_register.clone()} },
+                    Auth::Authenticating(pin_hash) => { 
+                        if let Key::Enter = key {
+                            if crate::hash(&starting_state.keystroke_register) != (pin_hash) {
+                            return Atm {
+                                cash_inside: starting_state.cash_inside,
+                                expected_pin_hash: Auth::Waiting,
+                                keystroke_register: Vec::new(),
+                            }
+                        }
+                        Atm {
+                            cash_inside: starting_state.cash_inside,
+                            expected_pin_hash: Auth::Authenticated,
+                            keystroke_register: Vec::new(), 
+                        }
+                        } else { 
+                            let mut keystroke_register: Vec<Key> = starting_state.keystroke_register.clone();
+                            keystroke_register.push(key.clone());
+
+                            Atm {
+                                cash_inside: starting_state.cash_inside,
+                                expected_pin_hash: Auth::Authenticating(pin_hash),
+                                keystroke_register: keystroke_register
+                            }
+                        }},
+                    Auth::Authenticated => { 
+                    if let Key::Enter = key {
+                        println!("{}",calculate_from_keystroke_register(&starting_state.keystroke_register));
+                        if calculate_from_keystroke_register(&starting_state.keystroke_register) > starting_state.cash_inside {
+                            return Atm {
+                                cash_inside: starting_state.cash_inside,
+                                expected_pin_hash: Auth::Waiting,
+                                keystroke_register: Vec::new(),
+                            }
+                        }
+                        Atm {
+                            cash_inside: starting_state.cash_inside - calculate_from_keystroke_register(&starting_state.keystroke_register),
+                            expected_pin_hash: Auth::Waiting,
+                            keystroke_register: Vec::new(), 
+                        }
+                        } else { 
+                            let mut keystroke_register: Vec<Key> = starting_state.keystroke_register.clone();
+                            keystroke_register.push(key.clone());
+
+                            Atm {
+                                cash_inside: starting_state.cash_inside,
+                                expected_pin_hash: Auth::Authenticated,
+                                keystroke_register: keystroke_register
+                            }
+                        }
+                    },   
+                }
+            }
+        }
     }
+}
+
+fn calculate_from_keystroke_register(register: &Vec<Key>) -> u64 {
+    let mut result = Vec::new();
+    for i in register {
+        match i {
+            Key::One => result.push(1),
+            Key::Two => result.push(2),
+            Key::Three => result.push(3),
+            Key::Four => result.push(4),
+            Key::Enter => continue,
+        }
+    }
+    result.iter().fold(0, |acc, &digit| acc * 10 + digit as u64)
 }
 
 #[test]
