@@ -98,7 +98,6 @@ impl StateMachine for Atm {
                         }},
                     Auth::Authenticated => { 
                     if let Key::Enter = key {
-                        println!("{}",calculate_from_keystroke_register(&starting_state.keystroke_register));
                         if calculate_from_keystroke_register(&starting_state.keystroke_register) > starting_state.cash_inside {
                             return Atm {
                                 cash_inside: starting_state.cash_inside,
